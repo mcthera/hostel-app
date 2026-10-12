@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAMUSTED Hostel Finder | Student Housing</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Header & Navigation -->
+    <header class="navbar">
+        <div class="logo">
+            <h1>🎓 AAMUSTED Hostel Finder</h1>
+            <p>Find student housing near campus effortlessly</p>
+        </div>
+        <nav class="nav-links">
+            <button id="nav-home" class="active-tab">Available Hostels</button>
+            <button id="nav-map">Campus Map</button>
+            <button id="nav-landlord">Landlord Login</button>
+        </nav>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+
+        <!-- VIEW 1: STUDENT HOSTEL FEED & SEARCH -->
+        <section id="view-home" class="view-section">
+            <div class="filters-bar">
+                <input type="text" id="search-input" placeholder="Search by landmark (e.g., I.P.T Traffic, Santasi)...">
+                <select id="filter-room-type">
+                    <option value="">All Room Types</option>
+                    <option value="One in a Room">One in a Room</option>
+                    <option value="Two in a Room">Two in a Room</option>
+                    <option value="Three in a Room">Three in a Room</option>
+                </select>
+            </div>
+
+            <!-- Dynamic Hostel Cards Grid (Loaded from PostgreSQL via PHP) -->
+            <div id="hostel-grid" class="hostel-grid">
+                <p style="grid-column: 1/-1; text-align: center; color: #64748b;">Loading listings from database...</p>
+            </div>
+        </section>
+
+        <!-- VIEW 2: INTERACTIVE MAP VIEW -->
+        <section id="view-map" class="view-section" style="display: none;">
+            <div class="map-container-wrapper">
+                <h2>Hostels Near Campus Map</h2>
+                <p>Click on any pin to view hostel pricing and walking distance.</p>
+                <div id="map"></div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: LANDLORD PORTAL & LOGIN -->
+        <section id="view-landlord" class="view-section" style="display: none;">
+            
+            <!-- Login Form Screen -->
+            <div id="login-container" class="auth-card">
+                <h2>Landlord Portal Login</h2>
+                <p>Sign in to manage and post available rooms.</p>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-user" required placeholder="Enter username (e.g., SiRTONY)">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-pass" required placeholder="Enter password">
+                    </div>
+                    <button type="submit" class="btn-primary">Login</button>
+                    <p id="login-error" class="error-msg"></p>
+                </form>
+            </div>
+
+            <!-- Dashboard Screen (Hidden until logged in) -->
+            <div id="dashboard-container" style="display: none;" class="dashboard-card">
+                <div class="dashboard-header">
+                    <h2>Welcome, Landlord / Agent</h2>
+                    <button id="btn-logout" class="btn-secondary">Logout</button>
+                </div>
+                
+                <div class="upload-section">
+                    <h3>Post a New Room / Hostel</h3>
+                    <form id="add-hostel-form">
+                        <div class="form-row">
+                            <input type="text" id="new-title" placeholder="Hostel Title (e.g., Modern Hall)" required>
+                            <select id="new-room-type" required>
+                                <option value="One in a Room">One in a Room</option>
+                                <option value="Two in a Room">Two in a Room</option>
+                                <option value="Three in a Room">Three in a Room</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <input type="number" id="new-price" placeholder="Price in GHS (e.g., 3900)" required>
+                            <input type="text" id="new-distance" placeholder="Walking Distance (e.g., 7-10 min walk)" required>
+                        </div>
+                        <div class="form-row">
+                            <input type="text" id="new-location" placeholder="Location Description (e.g., Near Pentecost Church)" required>
+                            <input type="text" id="new-phone" placeholder="Contact Phone (e.g., +233 24 636 2526)" required>
+                        </div>
+                        <div class="form-row">
+                            <input type="url" id="new-image" placeholder="Image URL (Paste direct image link)" required>
+                        </div>
+                        <button type="submit" class="btn-success">Publish Listing to Database</button>
+                    </form>
+                </div>
+
+                <div class="my-listings">
+                    <h3>Your Active Database Listings</h3>
+                    <div id="landlord-listings-grid" class="hostel-grid">
+                        <!-- Dynamic dashboard list -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Custom JavaScript linked to backend PHP API -->
+    <script src="script.js"></script>
+</body>
+</html>
