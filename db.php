@@ -11,7 +11,6 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
-    echo json_encode(["success" => "Connected to Neon successfully!"]);
 } catch (\PDOException $e) {
     header('Content-Type: application/json');
     echo json_encode(["error" => "Database connection failed: " . $e->getMessage()]);

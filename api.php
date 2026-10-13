@@ -1,12 +1,24 @@
 <?php
-header("Content-Type: application/json");
-require 'db.php';
+header('Content-Type: application/json');
+require_once 'db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
-    $stmt = $pdo->query("SELECT * FROM hostels ORDER BY id DESC");
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    try {
+        $landlord_id = $_GET['landlord_id'] ?? null;
+
+        if ($landlord_id) {
+            $stmt = $pdo->prepare("SELECT * FROM hostels WHERE landlord_id = :landlord_id ORDER BY created_at DESC");
+            $stmt->execute(['landlord_id' => $landlord_id]);
+        } else {
+            $stmt = $pdo->query("SELECT * FROM hostels ORDER BY created_at DESC");
+        }
+
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (PDOException $e) {
+        echo json_encode(["error" => "Failed to fetch hostels: " . $e->getMessage()]);
+    }
 }
 
 if ($method === 'POST') {

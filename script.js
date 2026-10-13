@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupNavigation();
     setupFilters();
     setupAuth();
+    setupRegistration();
     setupLandlordForm();
 });
 
@@ -18,6 +19,22 @@ function fetchHostelsFromDatabase() {
             renderHostelCards(hostels);
         })
         .catch(error => console.error("Error fetching data from PostgreSQL:", error));
+}
+
+function loadLandlordHostels() {
+    const landlordId = localStorage.getItem("landlord_id");
+    if (!landlordId) return;
+
+    fetch(`api.php?landlord_id=${encodeURIComponent(landlordId)}`)
+        .then(response => response.json())
+        .then(landlordHostels => {
+            if (!Array.isArray(landlordHostels)) {
+                throw new Error(landlordHostels.error || "Invalid hostel data received.");
+            }
+
+            renderHostelCards(landlordHostels, true);
+        })
+        .catch(error => console.error("Error loading landlord hostels:", error));
 }
 
 // 2. NAVIGATION LOGIC
@@ -120,22 +137,85 @@ function setupAuth() {
         const username = document.getElementById("login-user").value.trim();
         const password = document.getElementById("login-pass").value.trim();
 
-        // Simple check matching pgAdmin record sample
-        if (username === "SiRTONY" && password === "admin123") {
-            loginError.textContent = "";
-            loginContainer.style.display = "none";
-            dashboardContainer.style.display = "block";
-            renderHostelCards(hostels, true);
-        } else {
-            loginError.textContent = "Invalid username or password! (Try SiRTONY / admin123)";
-        }
+        fetch("login.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username, password: password })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    loginError.style.color = "green";
+                    loginError.innerText = data.message;
+                    localStorage.setItem("landlord_id", data.landlord_id);
+                    localStorage.setItem("username", data.username);
+                    loadLandlordHostels();
+
+                    setTimeout(() => {
+                        loginContainer.style.display = "none";
+                        dashboardContainer.style.display = "block";
+                    }, 800);
+                } else {
+                    loginError.style.color = "red";
+                    loginError.innerText = data.message;
+                }
+            })
+            .catch(error => {
+                console.error("Login error:", error);
+                loginError.style.color = "red";
+                loginError.innerText = "Connection error. Please try again.";
+            });
     });
 
     btnLogout.addEventListener("click", () => {
+        localStorage.removeItem("landlord_id");
+        localStorage.removeItem("username");
+
+        fetch("logout.php", { method: "POST" })
+            .then(response => response.json())
+            .then(data => console.log(data.message))
+            .catch(error => console.error("Logout error:", error));
+
         document.getElementById("login-user").value = "";
         document.getElementById("login-pass").value = "";
+        loginError.innerText = "";
         dashboardContainer.style.display = "none";
         loginContainer.style.display = "block";
+    });
+}
+
+// 6. LANDLORD REGISTRATION
+function setupRegistration() {
+    const registerForm = document.getElementById("registerForm");
+
+    registerForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const phone = document.getElementById("phone").value;
+        const msgDiv = document.getElementById("responseMessage");
+
+        fetch("register.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: username,
+                password: password,
+                phone_number: phone
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Server response:", data);
+                msgDiv.style.color = data.status === "success" ? "green" : "red";
+                msgDiv.innerText = data.message;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                msgDiv.style.color = "red";
+                msgDiv.innerText = "Unable to complete registration. Please try again.";
+            });
     });
 }
 
@@ -146,33 +226,40 @@ function setupLandlordForm() {
     addForm.addEventListener("submit", (e) => {
         e.preventDefault();
 
-        const newHostel = {
+        const landlordId = localStorage.getItem("landlord_id");
+        const hostelData = {
+            landlord_id: landlordId,
             title: document.getElementById("new-title").value,
-            roomType: document.getElementById("new-room-type").value,
-            price: Number(document.getElementById("new-price").value),
+            room_type: document.getElementById("new-room-type").value,
+            price: document.getElementById("new-price").value,
             distance: document.getElementById("new-distance").value,
             location: document.getElementById("new-location").value,
             phone: document.getElementById("new-phone").value,
-            image: document.getElementById("new-image").value
+            image_url: document.getElementById("new-image").value || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80",
+            lat: 6.685,
+            lng: -1.623
         };
 
-        // Send to PHP backend API
-        fetch('api.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newHostel)
+        fetch("post-hostel.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(hostelData)
         })
-        .then(response => response.json())
-        .then(result => {
-            if(result.success) {
-                alert(result.message);
-                addForm.reset();
-                fetchHostelsFromDatabase(); // Reload fresh data from PostgreSQL
-                setTimeout(() => renderHostelCards(hostels, true), 300);
-            } else {
-                alert("Error saving listing.");
-            }
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert(data.message);
+                    addForm.reset();
+                    fetchHostelsFromDatabase();
+                    loadLandlordHostels();
+                } else {
+                    alert("Error: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Posting error:", error);
+                alert("Unable to post the hostel. Please try again.");
+            });
     });
 }
 

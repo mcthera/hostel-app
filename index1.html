@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hostel App Test</title>
+</head>
+<body>
+    <h2>Hostel App Database Test</h2>
+    <button id="testBtn">Test Register Landlord</button>
+
+    <script>
+        document.getElementById('testBtn').addEventListener('click', function() {
+            fetch('register.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: 'landlord_kwadwo',
+                password: 'password123',
+                phone_number: '+233 24 000 0000'
+              })
+            })
+            .then(res => res.json())
+            .then(data => console.log('Response:', data))
+            .catch(err => console.error('Error:', err));
+        });
+    </script>
+</body>
+</html>
