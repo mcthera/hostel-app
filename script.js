@@ -92,13 +92,33 @@ function renderHostelCards(list, isDashboard = false) {
                 <div class="meta-info">📍 ${hostel.location}</div>
                 
                 ${isDashboard 
-                    ? `<button class="btn-danger" onclick="deleteHostel(${hostel.id})">Delete from Database</button>` 
+                    ? `<button class="btn-secondary btn-edit" type="button">Edit</button><button class="btn-danger" type="button" onclick="deleteHostel(${hostel.id})">Delete from Database</button>` 
                     : `<a href="tel:${hostel.phone}" class="btn-call">Call Contact: ${hostel.phone}</a>`
                 }
             </div>
         `;
+
+        if (isDashboard) {
+            card.querySelector(".btn-edit").addEventListener("click", () => editHostel(hostel));
+        }
+
         grid.appendChild(card);
     });
+}
+
+function editHostel(hostel) {
+    const addForm = document.getElementById("add-hostel-form");
+    document.getElementById("new-title").value = hostel.title;
+    document.getElementById("new-room-type").value = hostel.room_type;
+    document.getElementById("new-price").value = hostel.price;
+    document.getElementById("new-distance").value = hostel.distance;
+    document.getElementById("new-location").value = hostel.location;
+    document.getElementById("new-phone").value = hostel.phone;
+    document.getElementById("new-image").value = hostel.image_url || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80";
+    addForm.dataset.editId = hostel.id;
+
+    const submitButton = addForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.innerText = "Update Hostel";
 }
 
 // 4. SEARCH & FILTERS
@@ -226,6 +246,7 @@ function setupLandlordForm() {
     addForm.addEventListener("submit", (e) => {
         e.preventDefault();
 
+        const editId = addForm.dataset.editId;
         const landlordId = localStorage.getItem("landlord_id");
         const hostelData = {
             landlord_id: landlordId,
@@ -240,7 +261,9 @@ function setupLandlordForm() {
             lng: -1.623
         };
 
-        fetch("post-hostel.php", {
+        if (editId) hostelData.id = editId;
+
+        fetch(editId ? "update-hostel.php" : "post-hostel.php", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(hostelData)
@@ -250,8 +273,14 @@ function setupLandlordForm() {
                 if (data.status === "success") {
                     alert(data.message);
                     addForm.reset();
+                    delete addForm.dataset.editId;
+                    const submitButton = addForm.querySelector('button[type="submit"]');
+                    if (submitButton) submitButton.innerText = "Publish Listing to Database";
                     fetchHostelsFromDatabase();
                     loadLandlordHostels();
+                    if (typeof refreshMapMarkers === "function") {
+                        refreshMapMarkers();
+                    }
                 } else {
                     alert("Error: " + data.message);
                 }
@@ -271,7 +300,7 @@ window.deleteHostel = function(id) {
             .then(result => {
                 if(result.success) {
                     fetchHostelsFromDatabase();
-                    setTimeout(() => renderHostelCards(hostels, true), 300);
+                    loadLandlordHostels();
                 }
             });
     }
@@ -279,29 +308,55 @@ window.deleteHostel = function(id) {
 
 // 7. LEAFLET MAP INTEGRATION
 function initMap() {
-    if (mapInstance) {
+    if (!mapInstance) {
+        // Initialize map centered on Kumasi / AAMUSTED area
+        mapInstance = L.map('map').setView([6.6850, -1.6230], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance);
+
+        // Store active markers in a layer group so we can clear/refresh them easily
+        window.mapMarkersGroup = L.layerGroup().addTo(mapInstance);
+    } else {
         mapInstance.invalidateSize();
-        return;
     }
 
-    mapInstance = L.map('map').setView([6.6920, -1.6160], 14);
+    // Always refresh markers when switching to the map view
+    refreshMapMarkers();
+}
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(mapInstance);
+function refreshMapMarkers() {
+    if (!mapInstance || !window.mapMarkersGroup) return;
 
-    hostels.forEach(hostel => {
-        if(hostel.lat && hostel.lng) {
-            const marker = L.marker([Number(hostel.lat), Number(hostel.lng)]).addTo(mapInstance);
-            marker.bindPopup(`
-                <div style="width: 180px;">
-                    <img src="${hostel.image_url}" style="width:100%; height:100px; object-fit:cover; border-radius:4px; margin-bottom:5px;">
-                    <h4 style="font-size:0.95rem; margin-bottom:3px;">${hostel.title}</h4>
-                    <p style="color: #16a34a; font-weight:bold; margin-bottom:3px;">GH¢${Number(hostel.price).toLocaleString()}</p>
-                    <p style="font-size:0.8rem; color:#64748b;">${hostel.distance}</p>
-                </div>
-            `);
-        }
-    });
+    // Clear old pins
+    window.mapMarkersGroup.clearLayers();
+
+    // Re-fetch all hostels from database so newly posted ones display immediately
+    fetch('api.php')
+        .then(response => response.json())
+        .then(data => {
+            hostels = data; // Update local array
+
+            hostels.forEach((hostel, index) => {
+                // If lat/lng exist in DB, use them; otherwise offset slightly so markers don't overlap directly
+                let lat = hostel.lat ? Number(hostel.lat) : 6.6850 + (index * 0.003);
+                let lng = hostel.lng ? Number(hostel.lng) : -1.6230 + (index * 0.003);
+
+                const marker = L.marker([lat, lng]);
+
+                marker.bindPopup(`
+                    <div style="width: 180px;">
+                        <img src="${hostel.image_url}" style="width:100%; height:100px; object-fit:cover; border-radius:4px; margin-bottom:5px;" onerror="this.src='https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80'">
+                        <h4 style="font-size:0.95rem; margin-bottom:3px;">${hostel.title}</h4>
+                        <p style="color: #16a34a; font-weight:bold; margin-bottom:3px;">GH¢${Number(hostel.price).toLocaleString()}</p>
+                        <p style="font-size:0.8rem; color:#64748b;">${hostel.distance}</p>
+                    </div>
+                `);
+
+                window.mapMarkersGroup.addLayer(marker);
+            });
+        })
+        .catch(error => console.error("Error updating map markers:", error));
 }
